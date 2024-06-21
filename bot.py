@@ -7,7 +7,8 @@ import asyncio
 # 환경 변수 설정
 TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+READ_CHANNEL_ID = int(os.getenv("READ_CHANNEL_ID"))
+SEND_CHANNEL_ID = int(os.getenv("SEND_CHANNEL_ID"))
 AUTHORIZED_USERS = [
     int(id) for id in os.getenv("AUTHORIZED_USERS", "").split(",") if id
 ]
@@ -54,15 +55,21 @@ async def summarize_coding_activity(messages, user_id):
 
 async def daily_summary():
     print("Starting daily summary...")
-    channel = client.get_channel(CHANNEL_ID)
-    if channel is None:
-        print(f"Channel not found. CHANNEL_ID: {CHANNEL_ID}")
+    read_channel = client.get_channel(READ_CHANNEL_ID)
+    send_channel = client.get_channel(SEND_CHANNEL_ID)
+
+    if read_channel is None:
+        print(f"Read channel not found. READ_CHANNEL_ID: {READ_CHANNEL_ID}")
         return
-    print("Channel found. Fetching messages...")
+    if send_channel is None:
+        print(f"Send channel not found. SEND_CHANNEL_ID: {SEND_CHANNEL_ID}")
+        return
+
+    print("Channels found. Fetching messages...")
 
     today = datetime.now().date()
     midnight = datetime.combine(today, time.min)
-    messages = [msg async for msg in channel.history(after=midnight, limit=None)]
+    messages = [msg async for msg in read_channel.history(after=midnight, limit=None)]
 
     summary = "오늘의 코딩 테스트 활동 요약:\n\n"
     for user_id in AUTHORIZED_USERS:
@@ -75,7 +82,7 @@ async def daily_summary():
         summary += "오늘은 인증된 유저들의 코딩 테스트 활동이 없었습니다."
 
     print("Sending summary...")
-    await channel.send(summary)
+    await send_channel.send(summary)
     print("Summary sent.")
 
 
