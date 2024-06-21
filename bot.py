@@ -50,8 +50,8 @@ async def summarize_coding_activity(messages, user_id, nickname):
             messages=[
                 {
                     "role": "system",
-                    "content": """당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 형식은 다음과 같습니다.
-                    - 사용자이름
+                    "content": f"""당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 형식은 다음과 같습니다.
+                    - {nickname}
                       - 총 X문제
                       - https://school.programmers.co.kr/learn/courses/30/lessons/XXXXX
                       - https://school.programmers.co.kr/learn/courses/30/lessons/XXXXX
@@ -91,9 +91,12 @@ async def daily_summary():
 
     summary = f"{today.strftime('%Y.%m.%d')}\n"
     for user_id in AUTHORIZED_USERS:
-        user = await discord_client.fetch_user(user_id)
         member = read_channel.guild.get_member(user_id)
-        nickname = member.nick if member and member.nick else user.name
+        if member:
+            nickname = member.nick if member.nick else member.name
+        else:
+            user = await discord_client.fetch_user(user_id)
+            nickname = user.name
         user_summary = await summarize_coding_activity(messages, user_id, nickname)
         summary += f"{user_summary}\n"
 
