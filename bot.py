@@ -1,45 +1,21 @@
 import os
 import discord
-from dotenv import load_dotenv
 import openai
 from datetime import datetime, time
-import asyncio
-import schedule
-import time as time_module
-import json
 
-load_dotenv()
+# 환경 변수 설정
 TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # 요약을 보낼 채널 ID
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+AUTHORIZED_USERS = [
+    int(id) for id in os.getenv("AUTHORIZED_USERS", "").split(",") if id
+]
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.members = True  # 서버 멤버 정보에 접근하기 위해 필요
 client = discord.Client(intents=intents)
 
 openai.api_key = OPENAI_API_KEY
-
-# 인증된 유저 목록을 저장할 파일
-AUTHORIZED_USERS_FILE = "authorized_users.json"
-
-
-# 인증된 유저 목록 불러오기
-def load_authorized_users():
-    try:
-        with open(AUTHORIZED_USERS_FILE, "r") as f:
-            return set(json.load(f))
-    except FileNotFoundError:
-        return set()
-
-
-# 인증된 유저 목록 저장하기
-def save_authorized_users(users):
-    with open(AUTHORIZED_USERS_FILE, "w") as f:
-        json.dump(list(users), f)
-
-
-authorized_users = load_authorized_users()
 
 
 async def summarize_coding_activity(messages, user_id):
@@ -79,7 +55,7 @@ async def daily_summary():
     messages = [msg async for msg in channel.history(after=midnight, limit=None)]
 
     summary = "오늘의 코딩 테스트 활동 요약:\n\n"
-    for user_id in authorized_users:
+    for user_id in AUTHORIZED_USERS:
         user = await client.fetch_user(user_id)
         user_summary = await summarize_coding_activity(messages, user_id)
         if user_summary:
@@ -91,38 +67,18 @@ async def daily_summary():
     await channel.send(summary)
 
 
-@client.event
-async def on_ready():
-    print(f"{client.user} has connected to Discord!")
-
-
-def run_daily_summary():
-    asyncio.run_coroutine_threadsafe(daily_summary(), client.loop)
-
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
+async def main():
+    await client.login(TOKEN)
+    channel = client.get_channel(CHANNEL_ID)
+    if channel is None:
+        print("Channel not found")
         return
 
-    if message.content.startswith("!요약"):
-        await daily_summary()
-    elif message.content.startswith("!인증"):
-        authorized_users.add(message.author.id)
-        save_authorized_users(authorized_users)
-        await message.channel.send(f"{message.author.name}님이 인증되었습니다.")
-    elif message.content.startswith("!인증취소"):
-        authorized_users.discard(message.author.id)
-        save_authorized_users(authorized_users)
-        await message.channel.send(f"{message.author.name}님의 인증이 취소되었습니다.")
+    await daily_summary()
+    await client.close()
 
 
-async def schedule_daily_summary():
-    schedule.every().day.at("09:05").do(run_daily_summary)
-    while True:
-        schedule.run_pending()
-        await asyncio.sleep(60)  # 1분마다 체크
+if __name__ == "__main__":
+    import asyncio
 
-
-client.loop.create_task(schedule_daily_summary())
-client.run(TOKEN)
+    asyncio.run(main())
