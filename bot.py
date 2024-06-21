@@ -65,11 +65,27 @@ async def daily_summary():
         print(f"Send channel not found. SEND_CHANNEL_ID: {SEND_CHANNEL_ID}")
         return
 
-    print("Channels found. Fetching messages...")
+    print(f"Read channel found: {read_channel.name} (ID: {read_channel.id})")
+    print(f"Send channel found: {send_channel.name} (ID: {send_channel.id})")
 
     today = datetime.now().date()
     midnight = datetime.combine(today, time.min)
     messages = [msg async for msg in read_channel.history(after=midnight, limit=None)]
+
+    print(f"Number of messages fetched: {len(messages)}")
+    for msg in messages:
+        print(
+            f"Message from {msg.author.name}: {msg.content[:50]}..."
+        )  # 메시지 내용의 처음 50자만 출력
+
+    print("Authorized users:")
+    for user_id in AUTHORIZED_USERS:
+        try:
+            user = await client.fetch_user(user_id)
+            print(f"  - {user.name} (ID: {user.id})")
+        except discord.NotFound:
+            print(f"  - Unknown user (ID: {user_id})")
+    print(f"Total number of authorized users: {len(AUTHORIZED_USERS)}")
 
     summary = "오늘의 코딩 테스트 활동 요약:\n\n"
     for user_id in AUTHORIZED_USERS:
