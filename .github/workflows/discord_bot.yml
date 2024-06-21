@@ -23,6 +23,7 @@ jobs:
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          READ_CHANNEL_ID: ${{ secrets.READ_CHANNEL_ID }}
+          SEND_CHANNEL_ID: ${{ secrets.SEND_CHANNEL_ID }}
           AUTHORIZED_USERS: ${{ secrets.AUTHORIZED_USERS }}
         run: python bot.py
