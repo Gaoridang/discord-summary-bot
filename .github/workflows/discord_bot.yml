@@ -8,6 +8,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # 5분 후 자동 종료
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python

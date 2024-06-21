@@ -2,6 +2,7 @@ import os
 import discord
 import openai
 from datetime import datetime, time
+import asyncio
 
 # 환경 변수 설정
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -21,6 +22,8 @@ openai.api_key = OPENAI_API_KEY
 @client.event
 async def on_ready():
     print(f"{client.user} has connected to Discord!")
+    await daily_summary()
+    await client.close()
 
 
 async def summarize_coding_activity(messages, user_id):
@@ -50,10 +53,12 @@ async def summarize_coding_activity(messages, user_id):
 
 
 async def daily_summary():
+    print("Starting daily summary...")
     channel = client.get_channel(CHANNEL_ID)
     if channel is None:
-        print("Channel not found")
+        print(f"Channel not found. CHANNEL_ID: {CHANNEL_ID}")
         return
+    print("Channel found. Fetching messages...")
 
     today = datetime.now().date()
     midnight = datetime.combine(today, time.min)
@@ -69,7 +74,9 @@ async def daily_summary():
     if summary == "오늘의 코딩 테스트 활동 요약:\n\n":
         summary += "오늘은 인증된 유저들의 코딩 테스트 활동이 없었습니다."
 
+    print("Sending summary...")
     await channel.send(summary)
+    print("Summary sent.")
 
 
 @client.event
@@ -81,5 +88,14 @@ async def on_message(message):
         await daily_summary()
 
 
+async def main():
+    try:
+        await client.start(TOKEN)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        await client.close()
+
+
 if __name__ == "__main__":
-    client.run(TOKEN)
+    asyncio.run(main())
