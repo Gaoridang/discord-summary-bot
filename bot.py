@@ -31,38 +31,44 @@ async def on_ready():
         await discord_client.close()
 
 
-async def summarize_coding_activity(messages, user_id):
-    print(f"Summarizing activity for user ID: {user_id}")
+async def summarize_coding_activity(messages, user_id, nickname):
+    print(f"Summarizing activity for user: {nickname}")
     user_messages = [m for m in messages if m.author.id == user_id]
     if not user_messages:
-        print(f"No messages found for user ID: {user_id}")
-        return None
+        print(f"No messages found for user: {nickname}")
+        return f"- {nickname}\n  - 총 0문제"
 
     combined_messages = "\n".join(
         [f"{m.author.name}: {m.content}" for m in user_messages]
     )
 
-    print(f"Sending request to OpenAI for user ID: {user_id}")
+    print(f"Sending request to OpenAI for user: {nickname}")
     try:
         response = await asyncio.to_thread(
             openai_client.chat.completions.create,
-            model="gpt-4o",
+            model="gpt-3.5-turbo",
             messages=[
                 {
                     "role": "system",
-                    "content": "당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 메시지 내용을 분석하여 사용자가 풀은 코딩 문제의 수와 문제 목록을 불렛 포인트로 요약해주세요. 링크나 문제 번호만 있는 경우에도 하나의 문제로 간주합니다.",
+                    "content": """당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 형식은 다음과 같습니다.
+                    - 사용자이름
+                      - 총 X문제
+                      - https://school.programmers.co.kr/learn/courses/30/lessons/XXXXX
+                      - https://school.programmers.co.kr/learn/courses/30/lessons/XXXXX
+                      - https://school.programmers.co.kr/learn/courses/30/lessons/XXXXX
+                    """,
                 },
                 {
                     "role": "user",
-                    "content": f"다음 메시지들에서 코딩 테스트 활동을 요약해주세요:\n\n{combined_messages}",
+                    "content": f"다음 메시지들에서 {nickname}의 코딩 테스트 활동을 요약해주세요:\n\n{combined_messages}",
                 },
             ],
         )
-        print(f"Received response from OpenAI for user ID: {user_id}")
+        print(f"Received response from OpenAI for user: {nickname}")
         return response.choices[0].message.content
     except Exception as e:
-        print(f"Error in OpenAI request for user ID {user_id}: {e}")
-        return f"오류 발생: {str(e)}"
+        print(f"Error in OpenAI request for user {nickname}: {e}")
+        return f"- {nickname}\n  - 오류 발생: {str(e)}"
 
 
 async def daily_summary():
@@ -70,15 +76,11 @@ async def daily_summary():
     read_channel = discord_client.get_channel(READ_CHANNEL_ID)
     send_channel = discord_client.get_channel(SEND_CHANNEL_ID)
 
-    if read_channel is None:
-        print(f"Read channel not found. READ_CHANNEL_ID: {READ_CHANNEL_ID}")
+    if read_channel is None or send_channel is None:
+        print(
+            f"Channel not found. READ_CHANNEL_ID: {READ_CHANNEL_ID}, SEND_CHANNEL_ID: {SEND_CHANNEL_ID}"
+        )
         return
-    if send_channel is None:
-        print(f"Send channel not found. SEND_CHANNEL_ID: {SEND_CHANNEL_ID}")
-        return
-
-    print(f"Read channel found: {read_channel.name} (ID: {read_channel.id})")
-    print(f"Send channel found: {send_channel.name} (ID: {send_channel.id})")
 
     today = datetime.now().date()
     midnight = datetime.combine(today, time.min)
@@ -86,29 +88,14 @@ async def daily_summary():
     messages = [msg async for msg in read_channel.history(after=midnight, limit=None)]
 
     print(f"Number of messages fetched: {len(messages)}")
-    for msg in messages:
-        print(f"Message from {msg.author.name}: {msg.content[:50]}...")
 
-    print("Authorized users:")
-    for user_id in AUTHORIZED_USERS:
-        try:
-            user = await discord_client.fetch_user(user_id)
-            print(f"  - {user.name} (ID: {user.id})")
-        except discord.NotFound:
-            print(f"  - Unknown user (ID: {user_id})")
-    print(f"Total number of authorized users: {len(AUTHORIZED_USERS)}")
-
-    summary = "오늘의 코딩 테스트 활동 요약:\n\n"
+    summary = f"{today.strftime('%Y.%m.%d')}\n"
     for user_id in AUTHORIZED_USERS:
         user = await discord_client.fetch_user(user_id)
-        user_summary = await summarize_coding_activity(messages, user_id)
-        if user_summary:
-            summary += f"{user.name}의 활동:\n{user_summary}\n\n"
-        else:
-            print(f"No activity summary for user {user.name}")
-
-    if summary == "오늘의 코딩 테스트 활동 요약:\n\n":
-        summary += "오늘은 인증된 유저들의 코딩 테스트 활동이 없었습니다."
+        member = read_channel.guild.get_member(user_id)
+        nickname = member.nick if member and member.nick else user.name
+        user_summary = await summarize_coding_activity(messages, user_id, nickname)
+        summary += f"{user_summary}\n"
 
     print("Summary content:")
     print(summary)
