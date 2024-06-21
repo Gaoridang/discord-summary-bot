@@ -18,6 +18,11 @@ client = discord.Client(intents=intents)
 openai.api_key = OPENAI_API_KEY
 
 
+@client.event
+async def on_ready():
+    print(f"{client.user} has connected to Discord!")
+
+
 async def summarize_coding_activity(messages, user_id):
     coding_messages = [
         m
@@ -67,18 +72,14 @@ async def daily_summary():
     await channel.send(summary)
 
 
-async def main():
-    await client.login(TOKEN)
-    channel = client.get_channel(CHANNEL_ID)
-    if channel is None:
-        print("Channel not found")
+@client.event
+async def on_message(message):
+    if message.author == client.user:
         return
 
-    await daily_summary()
-    await client.close()
+    if message.content.startswith("!요약"):
+        await daily_summary()
 
 
 if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(main())
+    client.run(TOKEN)
