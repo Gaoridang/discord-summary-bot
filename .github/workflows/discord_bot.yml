@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install discord.py==2.3.2 openai
+          pip install discord.py openai
       - name: Run bot
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
