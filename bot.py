@@ -31,22 +31,26 @@ async def summarize_coding_activity(messages, user_id):
     coding_messages = [
         m
         for m in messages
-        if m.author.id == user_id and "코딩테스트" in m.content.lower()
+        if m.author.id == user_id
+        and (
+            "코딩테스트" in m.content.lower()
+            or "programmers.co.kr" in m.content.lower()
+        )
     ]
     if not coding_messages:
         return None
 
     combined_messages = "\n".join([m.content for m in coding_messages])
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",
-                "content": "당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 풀은 문제의 수와 문제 목록을 불렛 포인트로 요약해주세요.",
+                "content": "당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 제공된 URL에서 문제 제목을 추출하고, 풀은 문제의 수와 문제 목록을 불렛 포인트로 요약해주세요.",
             },
             {
                 "role": "user",
-                "content": f"다음 메시지들에서 코딩 테스트 활동을 요약해주세요:\n\n{combined_messages}",
+                "content": f"다음 메시지들에서 코딩 테스트 활동을 요약해주세요. URL에서 문제 제목을 추출하세요:\n\n{combined_messages}",
             },
         ],
     )
@@ -93,9 +97,14 @@ async def daily_summary():
         user_summary = await summarize_coding_activity(messages, user_id)
         if user_summary:
             summary += f"{user.name}의 활동:\n{user_summary}\n\n"
+        else:
+            print(f"No coding test activity found for user {user.name}")
 
     if summary == "오늘의 코딩 테스트 활동 요약:\n\n":
         summary += "오늘은 인증된 유저들의 코딩 테스트 활동이 없었습니다."
+
+    print("Summary content:")
+    print(summary)
 
     print("Sending summary...")
     await send_channel.send(summary)
