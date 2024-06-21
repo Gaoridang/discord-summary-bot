@@ -1,11 +1,11 @@
 import os
 import discord
-import openai
+from openai import OpenAI
 from datetime import datetime, time
 import asyncio
 
 # 환경 변수 설정
-TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 READ_CHANNEL_ID = int(os.getenv("READ_CHANNEL_ID"))
 SEND_CHANNEL_ID = int(os.getenv("SEND_CHANNEL_ID"))
@@ -15,20 +15,20 @@ AUTHORIZED_USERS = [
 
 intents = discord.Intents.default()
 intents.message_content = True
-client = discord.Client(intents=intents)
+discord_client = discord.Client(intents=intents)
 
-openai.api_key = OPENAI_API_KEY
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 
-@client.event
+@discord_client.event
 async def on_ready():
-    print(f"{client.user} has connected to Discord!")
+    print(f"{discord_client.user} has connected to Discord!")
     try:
         await asyncio.wait_for(daily_summary(), timeout=300)  # 5분 타임아웃
     except asyncio.TimeoutError:
         print("Daily summary timed out after 5 minutes")
     finally:
-        await client.close()
+        await discord_client.close()
 
 
 async def summarize_coding_activity(messages, user_id):
@@ -44,27 +44,22 @@ async def summarize_coding_activity(messages, user_id):
 
     print(f"Sending request to OpenAI for user ID: {user_id}")
     try:
-        response = await asyncio.wait_for(
-            openai.ChatCompletion.acreate(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 메시지 내용을 분석하여 사용자가 풀은 코딩 문제의 수와 문제 목록을 불렛 포인트로 요약해주세요. 링크나 문제 번호만 있는 경우에도 하나의 문제로 간주합니다.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"다음 메시지들에서 코딩 테스트 활동을 요약해주세요:\n\n{combined_messages}",
-                    },
-                ],
-            ),
-            timeout=60,
+        response = await asyncio.to_thread(
+            openai_client.chat.completions.create,
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "당신은 사용자의 코딩 테스트 활동을 요약하는 도우미입니다. 메시지 내용을 분석하여 사용자가 풀은 코딩 문제의 수와 문제 목록을 불렛 포인트로 요약해주세요. 링크나 문제 번호만 있는 경우에도 하나의 문제로 간주합니다.",
+                },
+                {
+                    "role": "user",
+                    "content": f"다음 메시지들에서 코딩 테스트 활동을 요약해주세요:\n\n{combined_messages}",
+                },
+            ],
         )
         print(f"Received response from OpenAI for user ID: {user_id}")
-        return response.choices[0].message["content"]
-    except asyncio.TimeoutError:
-        print(f"OpenAI request timed out for user ID: {user_id}")
-        return "OpenAI 요청 시간 초과"
+        return response.choices[0].message.content
     except Exception as e:
         print(f"Error in OpenAI request for user ID {user_id}: {e}")
         return f"오류 발생: {str(e)}"
@@ -72,8 +67,8 @@ async def summarize_coding_activity(messages, user_id):
 
 async def daily_summary():
     print("Starting daily summary...")
-    read_channel = client.get_channel(READ_CHANNEL_ID)
-    send_channel = client.get_channel(SEND_CHANNEL_ID)
+    read_channel = discord_client.get_channel(READ_CHANNEL_ID)
+    send_channel = discord_client.get_channel(SEND_CHANNEL_ID)
 
     if read_channel is None:
         print(f"Read channel not found. READ_CHANNEL_ID: {READ_CHANNEL_ID}")
@@ -97,7 +92,7 @@ async def daily_summary():
     print("Authorized users:")
     for user_id in AUTHORIZED_USERS:
         try:
-            user = await client.fetch_user(user_id)
+            user = await discord_client.fetch_user(user_id)
             print(f"  - {user.name} (ID: {user.id})")
         except discord.NotFound:
             print(f"  - Unknown user (ID: {user_id})")
@@ -105,7 +100,7 @@ async def daily_summary():
 
     summary = "오늘의 코딩 테스트 활동 요약:\n\n"
     for user_id in AUTHORIZED_USERS:
-        user = await client.fetch_user(user_id)
+        user = await discord_client.fetch_user(user_id)
         user_summary = await summarize_coding_activity(messages, user_id)
         if user_summary:
             summary += f"{user.name}의 활동:\n{user_summary}\n\n"
@@ -123,9 +118,9 @@ async def daily_summary():
     print("Summary sent.")
 
 
-@client.event
+@discord_client.event
 async def on_message(message):
-    if message.author == client.user:
+    if message.author == discord_client.user:
         return
 
     if message.content.startswith("!요약"):
@@ -133,13 +128,7 @@ async def on_message(message):
 
 
 def main():
-    loop = asyncio.get_event_loop()
-    try:
-        loop.run_until_complete(client.start(TOKEN))
-    except KeyboardInterrupt:
-        loop.run_until_complete(client.close())
-    finally:
-        loop.close()
+    discord_client.run(DISCORD_TOKEN)
 
 
 if __name__ == "__main__":
