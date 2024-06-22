@@ -1,7 +1,7 @@
 import os
 import discord
 from openai import OpenAI
-from datetime import datetime, time
+from datetime import datetime, timedelta
 import asyncio
 
 # 환경 변수 설정
@@ -83,7 +83,8 @@ async def daily_summary():
         return
 
     today = datetime.now().date()
-    midnight = datetime.combine(today, time.min)
+    yesterday = today - timedelta(days=1)
+    midnight = datetime.combine(yesterday, time.min)
     print("Fetching messages...")
     messages = [msg async for msg in read_channel.history(after=midnight, limit=None)]
 
