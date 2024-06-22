@@ -1,7 +1,7 @@
 import os
 import discord
 from openai import OpenAI
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta, time, timezone
 import asyncio
 
 # 환경 변수 설정
@@ -18,6 +18,9 @@ intents.message_content = True
 discord_client = discord.Client(intents=intents)
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+# 한국 표준시 타임존 설정
+KST = timezone(timedelta(hours=9))
 
 
 @discord_client.event
@@ -82,15 +85,16 @@ async def daily_summary():
         )
         return
 
-    today = datetime.now().date()
-    yesterday = today - timedelta(days=1)
-    midnight = datetime.combine(yesterday, time.min)
+    now = datetime.now(KST)
+    today_midnight = datetime.combine(now.date(), time.min, KST)
     print("Fetching messages...")
-    messages = [msg async for msg in read_channel.history(after=midnight, limit=None)]
+    messages = [
+        msg async for msg in read_channel.history(after=today_midnight, limit=None)
+    ]
 
     print(f"Number of messages fetched: {len(messages)}")
 
-    summary = f"{today.strftime('%Y.%m.%d')}\n"
+    summary = f"{now.strftime('%Y.%m.%d')}\n"
     for user_id in AUTHORIZED_USERS:
         member = read_channel.guild.get_member(user_id)
         if member:
