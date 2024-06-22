@@ -46,7 +46,7 @@ async def summarize_coding_activity(messages, user_id, nickname):
     try:
         response = await asyncio.to_thread(
             openai_client.chat.completions.create,
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-0125",
             messages=[
                 {
                     "role": "system",
