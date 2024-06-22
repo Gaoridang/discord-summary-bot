@@ -1,7 +1,7 @@
 import os
 import discord
 from openai import OpenAI
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import asyncio
 
 # 환경 변수 설정
